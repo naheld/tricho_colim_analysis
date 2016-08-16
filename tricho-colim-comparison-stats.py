@@ -93,12 +93,43 @@ def makeComparisons (directory, description):
     outCsv = csv.writer(open(outFile, 'wb'))  
     outCsv.writerow(["Accession", "Description", "Sequence", "Sample Group", "Mean", "Stdev", "colimited_mean/mean"])
     
+    outFile2 = os.path.join(directory, description + "anova.csv")
+    outCsv2 = csv.writer(open(outFile2, 'wb'))
+    outCsv2.writerow(["Accession", "Sequence", "anovaf", "anovap", "toControl", "toP", "toFe"])
+   
     for sequence, new_df in groupedBySequence:
         accession = new_df.iloc[0]["Accession"]
         description = new_df.iloc[0]["Description"]
-        # group each sequence group by sample and calculate the mean
+        
+        # calculate anova, select only sequences with statistically significant anova and colimitation t test values
+        forStats = new_df.groupby("Sample")
+        if len(forStats) >3:
+            samples = []
+            for sample, df in forStats:
+                if sample == "A":
+                    treat1 = df["Intensity"]
+                    samples.append(treat1)
+                elif sample == "B":
+                    treat2 = df["Intensity"]
+                    samples.append(treat2)
+                elif sample == "C":
+                    treat3 = df["Intensity"]
+                    samples.append(treat3)
+                elif sample == "D":
+                    treat4 = df["Intensity"]
+                    samples.append(treat4)
+            f, p = stats.f_oneway(treat1, treat2, treat3, treat4)
+            if p < 0.05:
+                # test whether colimitation is different
+                toControls, toControlp = stats.ttest_ind(treat1, treat4)
+                toPs, toPp = stats.ttest_ind(treat2, treat4)
+                toFes, toFep = stats.ttest_ind(treat3, treat4)
+                if toPp and toFep < 0.05:
+                    outCsv2.writerow([accession, sequence, f, p, toControlp, toPp, toFep])
+                
+                
+                
         new_df_grouped = new_df.groupby("Sample")["Intensity"].agg([np.mean, np.std])
-        stats_grouped = new_df.groupby("Sample")["Intensity"].apply(stats.f_oneway)
 
         
         try:
@@ -114,9 +145,7 @@ def makeComparisons (directory, description):
 
         except KeyError:
             continue
-        
-        print stats_grouped.head()
-    
+
 def makePlots(directory, description):
     import os
     import csv
@@ -146,7 +175,7 @@ def makePlots(directory, description):
         except IndexError:
             b += 1
             a = 0
-            
+                
     fig.tight_layout()
     outFig = os.path.join(directory, description +  ".png") # save to a new, numbered, figure
     plt.savefig(outFig)
@@ -159,7 +188,7 @@ def main(directory, keywords, description):
     getPeptides(directory, description)
     makeComparisons (directory, description)
     #makePlots(directory, description)
-    anova (directory, description)
+
 
 if __name__ == "__main__":
-    main('/Users/Noelle/Documents/tricho_colimitation/HD/', ["histidine kinase"], "histidine_kinase")
+    main('/Users/Noelle/Documents/tricho_colimitation/HD/', ["kinase"], "all_kinase")

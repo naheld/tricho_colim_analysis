@@ -151,7 +151,6 @@ def anova(directory, description):
     import os
     import csv
     import pandas as pd
-    import scipy.stats as stats
     import numpy as np
     
     dataFile = os.path.join(directory, description + "significantDifferences.csv")
